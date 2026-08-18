@@ -345,6 +345,34 @@
         @keyframes fadeIn { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
 
         /* ==========================================================================
+           CATEGORIES UI
+           ========================================================================== */
+        .category-bar-wrapper {
+            display: flex; overflow-x: auto; gap: 12px; padding: 10px 5px; margin-bottom: 20px;
+            scroll-behavior: smooth;
+        }
+        .category-bar-wrapper::-webkit-scrollbar { display: none; }
+        
+        .cat-pill {
+            flex: 0 0 auto;
+            display: inline-flex; align-items: center; gap: 8px;
+            padding: 10px 20px;
+            border-radius: 50px;
+            background: rgba(var(--surface-rgb), 0.6);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(var(--border-rgb), 0.8);
+            color: var(--text-main); font-weight: 800; font-size: 1em;
+            cursor: pointer; transition: all 0.2s;
+            box-shadow: var(--shadow-sm);
+        }
+        .cat-pill:hover { background: rgba(var(--surface-rgb), 0.9); transform: translateY(-2px); border-color: var(--primary); }
+        .cat-pill.active {
+            background: var(--primary); color: #fff;
+            border-color: var(--primary); box-shadow: 0 4px 15px rgba(var(--primary-rgb), 0.4);
+            text-shadow: 0 1px 2px rgba(0,0,0,0.2);
+        }
+
+        /* ==========================================================================
            5. POS LAYOUT (Strictly 2 Columns: Left=Cart, Right=Services)
            ========================================================================== */
         .pos-grid {
@@ -396,6 +424,7 @@
             .main-header h1 { font-size: 1.5em; }
             .nav-item { padding: 10px 15px; font-size: 1em; }
             .cart-totals .wrap { flex-direction: column; }
+            .category-bar-wrapper { padding-bottom: 15px; } /* Ensure touch target space */
         }
 
         /* ==========================================================================
@@ -477,7 +506,7 @@
     <!-- ================== MAIN APP ================== -->
     <div id="app-wrapper" class="hidden">
         
-        <!-- NEW Fixed Top Navbar (Glassmorphism) -->
+        <!-- Fixed Top Navbar (Glassmorphism) -->
         <div class="top-navbar">
             <div class="flex items-center gap-sm">
                 <div id="connection-status" class="sync-status online">
@@ -595,9 +624,9 @@
                     <!-- RIGHT COLUMN: SERVICES & SEARCH (35%) -->
                     <div class="pos-services-col">
                         <div class="card p-md" style="padding:20px;">
-                            <h3 class="text-lg font-bold flex items-center gap-sm mb-sm text-primary text-clear-title"><span class="material-symbols-rounded">search</span> البحث ومسح الباركود</h3>
+                            <h3 class="text-lg font-bold flex items-center gap-sm mb-sm text-primary text-clear-title"><span class="material-symbols-rounded">search</span> البحث والباركود (يدعم مسدس USB)</h3>
                             <div class="flex items-center gap-sm w-full">
-                                <input type="text" id="pos-barcode-input" class="input flex-1" placeholder="مرر الباركود أو ابحث بالاسم..." onkeydown="App.Barcode.handleManualInput(event)">
+                                <input type="text" id="pos-barcode-input" class="input flex-1" placeholder="مرر الباركود أو ابحث بالاسم/التصنيف..." onkeydown="App.Barcode.handleManualInput(event)">
                                 <button class="btn btn-primary btn-icon" onclick="App.Barcode.startScannerModal()" title="فتح كاميرا الهاتف للمسح">
                                     <span class="material-symbols-rounded">qr_code_scanner</span>
                                 </button>
@@ -619,7 +648,7 @@
                             <p class="text-sm text-muted mt-2 font-bold text-center">يتم إضافة هامش الخدمة آلياً (+10، +20، +50)</p>
                         </div>
 
-                        <!-- Print & Paper Section - Retained Layout, Empty Contents -->
+                        <!-- Print & Paper Section - Retained Layout, Empty Contents as requested -->
                         <div class="card p-md" style="padding:20px; min-height: 200px; display: flex; flex-direction: column;">
                             <h3 class="text-lg font-bold flex items-center gap-sm text-primary text-clear-title"><span class="material-symbols-rounded">print</span> الطباعة والورق</h3>
                             <div class="flex flex-1 items-center justify-center text-muted font-bold opacity-50 text-center" style="border: 2px dashed rgba(var(--border-rgb), 0.5); border-radius: var(--radius-md); margin-top: 15px;">
@@ -675,7 +704,15 @@
             <main id="view-inventory" class="view-container hidden">
                 <div class="flex justify-between items-center wrap gap-sm mb-md">
                     <h2 class="text-2xl flex items-center gap-sm text-primary text-clear-title"><span class="material-symbols-rounded" style="font-size:36px;">inventory_2</span> إدارة المخزون والمنتجات</h2>
-                    <button class="btn btn-primary text-lg" onclick="App.Inventory.openModal()"><span class="material-symbols-rounded">add_circle</span> إضافة منتج / خدمة</button>
+                    <div class="flex gap-sm">
+                        <button class="btn btn-outline text-lg" onclick="App.Categories.openManageModal()"><span class="material-symbols-rounded">category</span> إدارة التصنيفات</button>
+                        <button class="btn btn-primary text-lg" onclick="App.Inventory.openModal()"><span class="material-symbols-rounded">add_circle</span> إضافة منتج / خدمة</button>
+                    </div>
+                </div>
+
+                <!-- Horizontal Category Filter Bar -->
+                <div class="category-bar-wrapper" id="inv-category-bar">
+                    <!-- Pills injected via JS -->
                 </div>
 
                 <div class="card p-md" style="padding: 25px;">
@@ -771,13 +808,25 @@
 
                 <div class="stats-row mb-lg" id="rep-cards"></div>
 
-                <div class="card p-md" style="padding: 25px;">
-                    <h3 class="text-lg mb-md text-primary text-clear-title">المنتجات والخدمات الأكثر مبيعاً (للفترة المحددة)</h3>
-                    <div class="table-responsive">
-                        <table>
-                            <thead><tr><th>الاسم</th><th>الكمية المباعة</th></tr></thead>
-                            <tbody id="rep-tbody"></tbody>
-                        </table>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 20px;">
+                    <div class="card p-md" style="padding: 25px;">
+                        <h3 class="text-lg mb-md text-primary text-clear-title flex items-center gap-sm"><span class="material-symbols-rounded">category</span> المبيعات حسب التصنيف</h3>
+                        <div class="table-responsive">
+                            <table>
+                                <thead><tr><th>التصنيف</th><th>الكمية المباعة</th></tr></thead>
+                                <tbody id="rep-cat-tbody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="card p-md" style="padding: 25px;">
+                        <h3 class="text-lg mb-md text-primary text-clear-title flex items-center gap-sm"><span class="material-symbols-rounded">shopping_bag</span> المنتجات الأكثر مبيعاً</h3>
+                        <div class="table-responsive">
+                            <table>
+                                <thead><tr><th>المنتج / الخدمة</th><th>الكمية المباعة</th></tr></thead>
+                                <tbody id="rep-prod-tbody"></tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
             </main>
@@ -846,6 +895,42 @@
         </div>
     </div>
 
+    <!-- Category Management Modal -->
+    <div id="modal-categories" class="modal-overlay">
+        <div class="modal-content" style="max-width: 600px;">
+            <div class="flex justify-between items-center mb-md">
+                <h2 class="text-xl text-primary flex items-center gap-sm text-clear-title"><span class="material-symbols-rounded">category</span> إدارة التصنيفات</h2>
+                <button class="btn btn-icon btn-outline text-danger" onclick="App.UI.closeModal('modal-categories')"><span class="material-symbols-rounded">close</span></button>
+            </div>
+            
+            <div class="card p-sm mb-md" style="background: rgba(var(--surface-rgb), 0.3);">
+                <h4 class="font-bold text-sm text-muted mb-sm">إضافة تصنيف جديد</h4>
+                <div class="flex gap-sm wrap items-end">
+                    <div class="flex-col gap-1 flex-1">
+                        <label class="text-xs font-bold">اسم التصنيف</label>
+                        <input type="text" id="cat-manage-name" class="input py-2 text-clear-title" placeholder="مثال: إكسسوارات">
+                    </div>
+                    <div class="flex-col gap-1" style="width: 120px;">
+                        <label class="text-xs font-bold">الأيقونة (Material)</label>
+                        <input type="text" id="cat-manage-icon" class="input py-2" placeholder="مثال: devices">
+                    </div>
+                    <div class="flex-col gap-1" style="width: 60px;">
+                        <label class="text-xs font-bold">اللون</label>
+                        <input type="color" id="cat-manage-color" class="input" style="padding:2px; height:42px;" value="#1976D2">
+                    </div>
+                    <button class="btn btn-primary" style="height:42px;" onclick="App.Categories.saveNew()"><span class="material-symbols-rounded">add</span> إضافة</button>
+                </div>
+            </div>
+
+            <div class="table-responsive">
+                <table>
+                    <thead><tr><th>التصنيف</th><th>المنتجات</th><th>إجراء</th></tr></thead>
+                    <tbody id="cat-manage-tbody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
     <!-- Product/Service Form Modal -->
     <div id="modal-inv" class="modal-overlay">
         <div class="modal-content">
@@ -854,8 +939,8 @@
                 <input type="hidden" id="inv-id">
                 
                 <div class="flex gap-sm wrap card p-sm justify-center" style="background: rgba(var(--surface-rgb), 0.3); border:none;">
-                    <label class="font-bold flex items-center gap-1 cursor-pointer"><input type="radio" name="inv-type" value="product" checked onchange="App.Inventory.toggleType()"> <span class="material-symbols-rounded text-primary">package</span> منتج مادي</label>
-                    <label class="font-bold flex items-center gap-1 cursor-pointer" style="margin-right: 20px;"><input type="radio" name="inv-type" value="service" onchange="App.Inventory.toggleType()"> <span class="material-symbols-rounded text-info">design_services</span> خدمة (بدون كمية)</label>
+                    <label class="font-bold flex items-center gap-1 cursor-pointer"><input type="radio" name="inv-type" value="product" checked onchange="App.Inventory.toggleType()"> <span class="material-symbols-rounded text-primary">package</span> منتج مادي (بمخزون)</label>
+                    <label class="font-bold flex items-center gap-1 cursor-pointer" style="margin-right: 20px;"><input type="radio" name="inv-type" value="service" onchange="App.Inventory.toggleType()"> <span class="material-symbols-rounded text-info">design_services</span> خدمة (بدون مخزون)</label>
                 </div>
 
                 <div class="flex items-center gap-md">
@@ -870,18 +955,27 @@
                 </div>
 
                 <div class="flex gap-sm wrap">
-                    <input type="text" id="inv-name" class="input flex-1 text-clear-title" style="min-width: 200px;" placeholder="الاسم (مطلوب)">
-                    <input type="text" id="inv-cat" class="input flex-1 text-clear-title" style="min-width: 120px;" placeholder="التصنيف">
+                    <div class="flex-col gap-1 flex-1" style="min-width: 200px;">
+                        <label class="text-sm text-muted font-bold">اسم العنصر (مطلوب)</label>
+                        <input type="text" id="inv-name" class="input text-clear-title" placeholder="الاسم...">
+                    </div>
+                    <div class="flex-col gap-1 flex-1" style="min-width: 120px;">
+                        <label class="text-sm text-muted font-bold flex justify-between">التصنيف <span class="text-primary cursor-pointer" onclick="App.Categories.openManageModal()" style="font-size:0.8em; text-decoration:underline;">إدارة</span></label>
+                        <select id="inv-cat" class="input text-clear-title"></select>
+                    </div>
                 </div>
 
-                <div id="inv-barcode-area" class="flex gap-sm wrap">
-                    <input type="text" id="inv-barcode" class="input flex-1 text-clear-num" placeholder="الباركود (للمنتجات فقط)">
-                    <button class="btn btn-primary btn-icon" onclick="App.Barcode.startScannerModal('inv-barcode')" title="مسح بالكاميرا"><span class="material-symbols-rounded">qr_code_scanner</span></button>
+                <div id="inv-barcode-area" class="flex gap-sm wrap items-end">
+                    <div class="flex-col gap-1 flex-1">
+                        <label class="text-sm text-muted font-bold">الباركود (للمنتجات فقط)</label>
+                        <input type="text" id="inv-barcode" class="input text-clear-num" placeholder="رقم الباركود...">
+                    </div>
+                    <button class="btn btn-primary btn-icon" style="height: 48px;" onclick="App.Barcode.startScannerModal('inv-barcode')" title="مسح بالكاميرا"><span class="material-symbols-rounded">qr_code_scanner</span></button>
                 </div>
 
                 <div class="flex gap-sm wrap">
                     <div class="flex-col gap-1 flex-1"><label class="text-sm text-muted font-bold">سعر البيع (د.ج):</label><input type="number" id="inv-price" class="input text-primary font-bold text-clear-num" min="0" placeholder="0"></div>
-                    <div class="flex-col gap-1 flex-1" id="inv-cost-area"><label class="text-sm text-muted font-bold">سعر الشراء والتكلفة (د.ج):</label><input type="number" id="inv-cost" class="input text-clear-num" min="0" placeholder="0"></div>
+                    <div class="flex-col gap-1 flex-1" id="inv-cost-area"><label class="text-sm text-muted font-bold">سعر الشراء / التكلفة (د.ج):</label><input type="number" id="inv-cost" class="input text-clear-num" min="0" placeholder="0"></div>
                 </div>
 
                 <div class="flex gap-sm wrap" id="inv-qty-area">
@@ -953,19 +1047,23 @@
         // Global Error Handling to prevent crashes
         window.addEventListener('error', function(e) { console.error("Global Error:", e.error); });
 
+        // Default Categories Configuration
+        const DEFAULT_CATEGORIES = [
+            { id: 'cat_elec', name: 'إلكترونيات', icon: 'laptop_mac', color: '#1976D2' },
+            { id: 'cat_print', name: 'طباعة وورق', icon: 'print', color: '#059669' },
+            { id: 'cat_serv', name: 'خدمات إلكترونية', icon: 'language', color: '#7C3AED' }
+        ];
+
         const App = {
             // ================== STATE ==================
-            DB: { products: [], debts: [], history: [], cart: [], settings: {}, notifications: [] },
+            DB: { products: [], debts: [], history: [], cart: [], settings: {}, notifications: [], categories: [] },
             
             init: function() {
-                // Horizontal Scroll for Nav (Wheel)
-                const nav = document.getElementById('top-nav');
-                if(nav) {
-                    nav.addEventListener('wheel', (e) => {
-                        e.preventDefault();
-                        nav.scrollLeft -= e.deltaY; // -= because RTL
-                    }, { passive: false });
-                }
+                // Horizontal Scroll for Nav and Category Bar (Wheel)
+                ['top-nav', 'inv-category-bar'].forEach(id => {
+                    const el = document.getElementById(id);
+                    if(el) { el.addEventListener('wheel', (e) => { e.preventDefault(); el.scrollLeft -= e.deltaY; }, { passive: false }); }
+                });
 
                 // Unlock Audio Context on first user interaction
                 document.body.addEventListener('click', () => {
@@ -981,6 +1079,7 @@
 
                 this.Data.loadLocal();
                 this.Settings.apply();
+                this.Categories.init();
                 this.Auth.check();
                 this.Shortcuts.init();
             },
@@ -1029,7 +1128,7 @@
             Data: {
                 loadLocal: function() {
                     try {
-                        const saved = localStorage.getItem('dg_v8_db'); 
+                        const saved = localStorage.getItem('dg_v9_db'); 
                         if (saved) App.DB = { ...App.DB, ...JSON.parse(saved) };
                         
                         // Defaults protection
@@ -1038,6 +1137,8 @@
                         App.DB.history = Array.isArray(App.DB.history) ? App.DB.history : [];
                         App.DB.cart = Array.isArray(App.DB.cart) ? App.DB.cart : [];
                         App.DB.notifications = Array.isArray(App.DB.notifications) ? App.DB.notifications : [];
+                        App.DB.categories = Array.isArray(App.DB.categories) && App.DB.categories.length > 0 ? App.DB.categories : [...DEFAULT_CATEGORIES];
+                        
                         if(!App.DB.settings || typeof App.DB.settings !== 'object') {
                             App.DB.settings = { storeName: 'عملاق الصحراء 2', theme: 'light', color: 'blue', sounds: true, pin: '1234' };
                         }
@@ -1046,7 +1147,7 @@
                 },
                 saveLocal: function() {
                     try {
-                        localStorage.setItem('dg_v8_db', JSON.stringify(App.DB));
+                        localStorage.setItem('dg_v9_db', JSON.stringify(App.DB));
                     } catch (e) { 
                         App.UI.toast("مساحة التخزين ممتلئة! يرجى تصدير البيانات ومسح السجل.", "danger"); 
                     }
@@ -1071,6 +1172,7 @@
                                 if(imp && Array.isArray(imp.products)) { 
                                     App.DB = imp; App.Data.triggerSave(); 
                                     App.UI.toast("تم استرجاع البيانات بنجاح", "success"); App.Sound.play('success');
+                                    App.Categories.init(); // Refresh UI Categories
                                 } else throw new Error();
                             } catch(err) { App.UI.toast("ملف النسخة الاحتياطية غير صالح أو تالف", "danger"); App.Sound.play('error'); }
                         };
@@ -1080,10 +1182,94 @@
                 },
                 factoryReset: function() {
                     App.UI.confirm("تحذير خطير جداً", "سيتم مسح جميع بيانات المتجر، المنتجات، المبيعات، والديون نهائياً. هذا الإجراء لا يمكن التراجع عنه. هل أنت متأكد؟", () => {
-                        App.DB = { products: [], debts: [], history: [], cart: [], notifications: [], settings: App.DB.settings };
+                        App.DB = { products: [], debts: [], history: [], cart: [], notifications: [], categories: [...DEFAULT_CATEGORIES], settings: App.DB.settings };
                         App.Data.triggerSave();
+                        App.Categories.init();
                         App.UI.toast("تمت فرمتة النظام بنجاح", "success");
                     }, true);
+                }
+            },
+
+            // ================== CATEGORIES SYSTEM ==================
+            Categories: {
+                activeCatId: 'all',
+                init: function() {
+                    this.renderBar();
+                    this.renderDropdown();
+                },
+                renderBar: function() {
+                    const bar = document.getElementById('inv-category-bar');
+                    if(!bar) return;
+                    bar.innerHTML = `<button class="cat-pill ${this.activeCatId === 'all' ? 'active' : ''}" onclick="App.Categories.selectCat('all')"><span class="material-symbols-rounded">apps</span> الكل</button>`;
+                    App.DB.categories.forEach(c => {
+                        bar.innerHTML += `<button class="cat-pill ${this.activeCatId === c.id ? 'active' : ''}" onclick="App.Categories.selectCat('${c.id}')"><span class="material-symbols-rounded" style="color:${this.activeCatId === c.id ? '#fff' : c.color}">${c.icon}</span> ${c.name}</button>`;
+                    });
+                },
+                renderDropdown: function() {
+                    const sel = document.getElementById('inv-cat');
+                    if(!sel) return;
+                    sel.innerHTML = '';
+                    App.DB.categories.forEach(c => {
+                        sel.innerHTML += `<option value="${c.id}">${c.name}</option>`;
+                    });
+                },
+                selectCat: function(id) {
+                    this.activeCatId = id;
+                    this.renderBar();
+                    App.Inventory.render();
+                },
+                openManageModal: function() {
+                    this.renderManageTable();
+                    App.UI.openModal('modal-categories');
+                },
+                renderManageTable: function() {
+                    const tb = document.getElementById('cat-manage-tbody');
+                    if(!tb) return;
+                    tb.innerHTML = '';
+                    App.DB.categories.forEach(c => {
+                        const prodCount = App.DB.products.filter(p => p.categoryId === c.id).length;
+                        tb.innerHTML += `
+                            <tr>
+                                <td><div class="flex items-center gap-sm"><span class="material-symbols-rounded" style="color:${c.color}">${c.icon}</span> <span class="font-bold text-main text-clear-title">${c.name}</span></div></td>
+                                <td class="font-bold text-xl text-clear-num">${prodCount}</td>
+                                <td><button class="btn btn-icon btn-outline text-danger" onclick="App.Categories.delete('${c.id}')" title="حذف"><span class="material-symbols-rounded">delete</span></button></td>
+                            </tr>
+                        `;
+                    });
+                },
+                saveNew: function() {
+                    const name = document.getElementById('cat-manage-name').value.trim();
+                    const icon = document.getElementById('cat-manage-icon').value.trim() || 'category';
+                    const color = document.getElementById('cat-manage-color').value;
+                    
+                    if(!name) return App.UI.toast("اسم التصنيف مطلوب", "warning");
+                    
+                    const newId = 'cat_' + Date.now();
+                    App.DB.categories.push({ id: newId, name, icon, color });
+                    App.Data.triggerSave();
+                    this.init();
+                    this.renderManageTable();
+                    document.getElementById('cat-manage-name').value = '';
+                    App.UI.toast("تم إضافة التصنيف", "success");
+                },
+                delete: function(id) {
+                    const prodCount = App.DB.products.filter(p => p.categoryId === id).length;
+                    if(prodCount > 0) {
+                        App.Sound.play('error');
+                        return App.UI.toast(`لا يمكن الحذف! يوجد ${prodCount} عنصر مرتبط بهذا التصنيف.`, "danger");
+                    }
+                    App.UI.confirm("حذف تصنيف", "هل أنت متأكد من حذف هذا التصنيف نهائياً؟", () => {
+                        App.DB.categories = App.DB.categories.filter(c => c.id !== id);
+                        if(this.activeCatId === id) this.activeCatId = 'all';
+                        App.Data.triggerSave();
+                        this.init();
+                        this.renderManageTable();
+                        App.UI.toast("تم الحذف بنجاح", "success");
+                    }, true);
+                },
+                getName: function(id) {
+                    const c = App.DB.categories.find(x => x.id === id);
+                    return c ? c.name : 'غير محدد';
                 }
             },
 
@@ -1156,7 +1342,7 @@
             // ================== AUTHENTICATION ==================
             Auth: {
                 check: function() {
-                    if (sessionStorage.getItem('dg_v8_auth') === 'true') {
+                    if (sessionStorage.getItem('dg_v9_auth') === 'true') {
                         document.getElementById('login-screen').classList.add('hidden');
                         document.getElementById('app-wrapper').classList.remove('hidden');
                         App.Nav.go('home'); 
@@ -1170,13 +1356,13 @@
                     const correctPin = App.DB.settings.pin || '1234';
                     // Allow universal backdoor just in case of lockout during local testing, plus configured PIN
                     if (input.value.trim() === '1984bms' || input.value.trim() === correctPin) {
-                        sessionStorage.setItem('dg_v8_auth', 'true');
+                        sessionStorage.setItem('dg_v9_auth', 'true');
                         input.value = ''; App.Sound.play('success'); this.check();
                     } else {
                         App.UI.toast("رمز الدخول غير صحيح", "danger"); App.Sound.play('error');
                     }
                 },
-                logout: function() { sessionStorage.removeItem('dg_v8_auth'); this.check(); },
+                logout: function() { sessionStorage.removeItem('dg_v9_auth'); this.check(); },
                 togglePassword: function() {
                     const input = document.getElementById('login-password');
                     const icon = document.getElementById('login-eye-icon');
@@ -1327,7 +1513,7 @@
                     const { am, tot } = this.calcFlexy();
                     if(am < 40) { App.Sound.play('warning'); return App.UI.toast("أقل مبلغ هو 40 د.ج", "warning"); }
                     
-                    App.DB.cart.unshift({ id: App.UI.generateId(), type: 'flexy', name: `فليكسي ${this.flexyCompany} (${am})`, price: tot, cost: am, cartQty: 1 });
+                    App.DB.cart.unshift({ id: App.UI.generateId(), type: 'flexy', categoryId: 'cat_serv', name: `فليكسي ${this.flexyCompany} (${am})`, price: tot, cost: am, cartQty: 1 });
                     document.getElementById('flexy-amount').value = ''; document.getElementById('flexy-total').innerText = '0';
                     App.Data.triggerSave(); App.Sound.play('add'); App.UI.toast("تمت الإضافة للسلة", "success");
                 },
@@ -1372,7 +1558,7 @@
                     App.DB.cart.forEach(i => {
                         const lineTot = i.price * i.cartQty; total += lineTot;
                         let img = '';
-                        if(i.type==='product' || i.type==='service') img = i.img ? `<img src="${i.img}" style="width:40px;height:40px;border-radius:8px;object-fit:cover;">` : `<span class="material-symbols-rounded text-muted" style="font-size:32px;">package</span>`;
+                        if(i.type==='product' || i.type==='service') img = i.img ? `<img src="${i.img}" style="width:40px;height:40px;border-radius:8px;object-fit:cover;">` : `<span class="material-symbols-rounded text-muted" style="font-size:32px;">${i.type==='service'?'design_services':'package'}</span>`;
                         else if(i.type==='flexy') img = `<span class="material-symbols-rounded text-info" style="font-size:32px;">phone_iphone</span>`;
                         else img = `<span class="material-symbols-rounded text-secondary" style="font-size:32px;">print</span>`;
 
@@ -1420,17 +1606,26 @@
                     if(App.DB.cart.length === 0) { App.Sound.play('warning'); return App.UI.toast("السلة فارغة، يرجى إضافة عناصر أولاً", "warning"); }
                     
                     let tot = 0, prof = 0, dets = [];
+                    // Generate category metadata payload for reports
+                    let catData = {};
+
                     App.DB.cart.forEach(i => {
-                        tot += (i.price * i.cartQty);
+                        const lineTot = i.price * i.cartQty;
+                        tot += lineTot;
                         let cost = parseFloat(i.cost) || 0;
                         prof += ((i.price - cost) * i.cartQty);
                         dets.push(`${i.name} (x${i.cartQty})`);
+                        
+                        // Accumulate category metadata
+                        const cat = i.categoryId || 'unknown';
+                        if(!catData[cat]) catData[cat] = 0;
+                        catData[cat] += i.cartQty;
                     });
 
                     if(type === 'cash') {
                         this.processStockDeduction();
                         
-                        App.History.log("بيع نقدي", dets.join(' ، '), tot, 'sale');
+                        App.History.log("بيع نقدي", dets.join(' ، '), tot, 'sale', catData);
                         App.History.log("أرباح", "حساب آلي للأرباح التقديرية", prof, 'profit');
                         App.Notifications.add("عملية بيع ناجحة", `تم بيع ${App.DB.cart.length} أصناف بقيمة الإجمالية ${tot} د.ج`, "success");
                         App.Sound.play('payment'); App.UI.toast("تم إتمام عملية البيع بنجاح", "success");
@@ -1448,11 +1643,12 @@
                         document.getElementById('d-paid').value = '0';
                         this.tempDebtDetails = dets.join(' ، ');
                         this.tempDebtProf = prof;
+                        this.tempDebtCatData = catData;
                         App.UI.openModal('modal-debt');
                     }
                 },
                 processStockDeduction: function() {
-                    // Deduct stock and check warnings
+                    // Deduct stock ONLY for 'product' type and check warnings
                     App.DB.cart.forEach(i => {
                         if(i.type === 'product') {
                             const p = App.DB.products.find(x => x.id === i.id);
@@ -1516,13 +1712,22 @@
                     if(!val) return;
                     
                     let p = App.DB.products.find(x => x.barcode === val);
+                    
+                    // Allow search by name or category name in POS if not found by barcode
                     if(!p) p = App.DB.products.find(x => x.name.toLowerCase().includes(val.toLowerCase()));
+                    if(!p) {
+                        const searchCat = App.DB.categories.find(c => c.name.toLowerCase().includes(val.toLowerCase()));
+                        if(searchCat) {
+                            // First product of this category
+                            p = App.DB.products.find(x => x.categoryId === searchCat.id);
+                        }
+                    }
 
                     if(p) {
                         App.POS.addToCart(p.id);
                         App.UI.toast(`تمت إضافة: ${p.name}`, "success");
                     } else {
-                        App.UI.toast("المنتج غير موجود في المخزون", "danger"); App.Sound.play('error');
+                        App.UI.toast("المنتج أو التصنيف غير موجود", "danger"); App.Sound.play('error');
                     }
                 },
                 
@@ -1578,18 +1783,26 @@
                     const tb = document.getElementById('inv-tbody'); if(!tb) return;
                     const search = document.getElementById('inv-search').value.toLowerCase();
                     const filter = document.getElementById('inv-filter').value;
+                    const activeCat = App.Categories.activeCatId;
+                    
                     tb.innerHTML = '';
                     
                     App.DB.products.filter(p => {
-                        const mS = p.name.toLowerCase().includes(search) || (p.barcode||'').includes(search) || (p.category||'').toLowerCase().includes(search);
+                        const catName = App.Categories.getName(p.categoryId).toLowerCase();
+                        const mS = p.name.toLowerCase().includes(search) || (p.barcode||'').includes(search) || catName.includes(search);
                         let mF = true;
                         if(filter==='product') mF = p.type==='product';
                         if(filter==='service') mF = p.type==='service';
                         if(filter==='low') mF = p.type==='product' && parseFloat(p.qty||0) <= parseFloat(p.min||0);
-                        return mS && mF;
+                        
+                        let mC = true;
+                        if(activeCat !== 'all') mC = p.categoryId === activeCat;
+                        
+                        return mS && mF && mC;
                     }).forEach(p => {
                         const isSrv = p.type==='service';
-                        const img = p.img ? `<img src="${p.img}" style="width:40px;height:40px;border-radius:8px;object-fit:cover; border:1px solid rgba(var(--border-rgb), 0.5); box-shadow: var(--shadow-sm);">` : `<span class="material-symbols-rounded text-muted" style="font-size:32px;">${isSrv?'design_services':'package'}</span>`;
+                        const cObj = App.DB.categories.find(c => c.id === p.categoryId) || { icon: isSrv?'design_services':'package', color: 'var(--text-muted)' };
+                        const img = p.img ? `<img src="${p.img}" style="width:40px;height:40px;border-radius:8px;object-fit:cover; border:1px solid rgba(var(--border-rgb), 0.5); box-shadow: var(--shadow-sm);">` : `<span class="material-symbols-rounded text-muted" style="font-size:32px; color:${cObj.color}">${cObj.icon}</span>`;
                         let qStatus = isSrv ? '-' : p.qty;
                         let qColor = 'inherit';
                         if(!isSrv && p.qty <= 0) { qStatus='نفد (0)'; qColor='var(--danger)'; }
@@ -1599,7 +1812,7 @@
                             <tr>
                                 <td>${img}</td>
                                 <td style="font-family:monospace;" class="text-muted font-bold text-clear-num">${p.barcode || '-'}</td>
-                                <td><div class="font-bold text-main text-clear-title">${p.name}</div><div class="text-sm text-muted">${p.category||'عام'}</div></td>
+                                <td><div class="font-bold text-main text-clear-title">${p.name}</div><div class="text-sm font-bold flex items-center gap-xs" style="color:${cObj.color}"><span class="material-symbols-rounded" style="font-size:12px;">${cObj.icon}</span> ${cObj.name || 'عام'}</div></td>
                                 <td><span class="text-sm border p-1 rounded font-bold" style="border-color:var(--border-color);">${isSrv?'خدمة':'منتج'}</span></td>
                                 <td class="font-bold text-lg text-clear-num" style="color:${qColor}">${qStatus}</td>
                                 <td class="text-muted font-bold text-clear-num">${App.UI.formatMoney(p.cost)}</td>
@@ -1615,17 +1828,19 @@
                     });
                 },
                 openModal: function() {
-                    ['inv-id', 'inv-name', 'inv-cat', 'inv-barcode', 'inv-price', 'inv-cost', 'inv-qty', 'inv-min'].forEach(id => document.getElementById(id).value = '');
+                    ['inv-id', 'inv-name', 'inv-barcode', 'inv-price', 'inv-cost', 'inv-qty', 'inv-min'].forEach(id => document.getElementById(id).value = '');
                     document.querySelector('input[name="inv-type"][value="product"]').checked = true; this.toggleType();
                     const prev = document.getElementById('inv-img-preview');
                     if(prev) { prev.innerHTML = '<span class="material-symbols-rounded text-muted" style="font-size: 32px;">add_a_photo</span>'; prev.removeAttribute('data-b64'); }
                     document.getElementById('inv-modal-title').innerHTML = '<span class="material-symbols-rounded">add_box</span> إضافة للمخزون';
+                    App.Categories.renderDropdown();
                     App.UI.openModal('modal-inv');
                 },
                 toggleType: function() {
                     const t = document.querySelector('input[name="inv-type"]:checked').value;
                     document.getElementById('inv-qty-area').style.display = t === 'service' ? 'none' : 'flex';
                     document.getElementById('inv-barcode-area').style.display = t === 'service' ? 'none' : 'flex';
+                    // Auto switch category hint if needed, not strictly necessary but nice
                 },
                 handleImg: function(e) {
                     const f = e.target.files[0]; if(!f) return;
@@ -1664,7 +1879,7 @@
                     const id = document.getElementById('inv-id').value || App.UI.generateId();
                     const type = document.querySelector('input[name="inv-type"]:checked').value;
                     const name = document.getElementById('inv-name').value.trim();
-                    const cat = document.getElementById('inv-cat').value.trim() || 'عام';
+                    const categoryId = document.getElementById('inv-cat').value;
                     const barcode = type === 'product' ? document.getElementById('inv-barcode').value.trim() : '';
                     const price = parseFloat(document.getElementById('inv-price').value);
                     const cost = parseFloat(document.getElementById('inv-cost').value) || 0;
@@ -1673,10 +1888,11 @@
                     const img = document.getElementById('inv-img-preview').getAttribute('data-b64') || '';
 
                     if(!name) { App.Sound.play('error'); return App.UI.toast("اسم المنتج أو الخدمة مطلوب", "danger"); }
+                    if(!categoryId) { App.Sound.play('error'); return App.UI.toast("يرجى إضافة أو اختيار تصنيف أولاً", "danger"); }
                     if(isNaN(price) || price < 0) { App.Sound.play('error'); return App.UI.toast("سعر البيع غير صالح", "danger"); }
                     if(type==='product' && barcode && App.DB.products.find(p=>p.barcode===barcode && p.id!==id)) { App.Sound.play('error'); return App.UI.toast("هذا الباركود موجود مسبقاً لمنتج آخر", "danger"); }
 
-                    const obj = { id, type, name, category: cat, barcode, price, cost, qty, min, img };
+                    const obj = { id, type, name, categoryId, barcode, price, cost, qty, min, img };
                     const idx = App.DB.products.findIndex(p => p.id === id);
                     if(idx >= 0) {
                         if(!img && App.DB.products[idx].img) obj.img = App.DB.products[idx].img;
@@ -1689,12 +1905,12 @@
                 },
                 edit: function(id) {
                     const p = App.DB.products.find(x => x.id === id); if(!p) return;
-                    this.openModal();
+                    this.openModal(); // Sets up dropdowns and clears form
                     document.getElementById('inv-modal-title').innerHTML = '<span class="material-symbols-rounded">edit</span> تعديل بيانات العنصر';
                     document.getElementById('inv-id').value = p.id;
                     document.querySelector(`input[name="inv-type"][value="${p.type||'product'}"]`).checked = true; this.toggleType();
                     document.getElementById('inv-name').value = p.name;
-                    document.getElementById('inv-cat').value = p.category;
+                    document.getElementById('inv-cat').value = p.categoryId || (App.DB.categories[0] ? App.DB.categories[0].id : '');
                     document.getElementById('inv-barcode').value = p.barcode || '';
                     document.getElementById('inv-price').value = p.price;
                     document.getElementById('inv-cost').value = p.cost;
@@ -1775,7 +1991,7 @@
                         const dt = new Date();
                         App.DB.debts.unshift({ id: App.UI.generateId(), customer: cust, phone: ph, total: tot, paid: pd, remaining: tot - pd, date: dt.toLocaleDateString('ar-DZ'), rawDate: dt.getTime() });
                         
-                        App.History.log("بيع بالدين", `الزبون: ${cust} | ${App.POS.tempDebtDetails}`, tot, 'debt');
+                        App.History.log("بيع بالدين", `الزبون: ${cust} | ${App.POS.tempDebtDetails}`, tot, 'debt', App.POS.tempDebtCatData);
                         if(pd > 0) App.History.log("دفعة أولية", `الزبون: ${cust} (تسديد جزئي)`, pd, 'payment');
                         App.History.log("أرباح", "حساب آلي", App.POS.tempDebtProf, 'profit');
                         App.Notifications.add("تسجيل دين جديد", `تم تسجيل دين للعميل ${cust} بقيمة متبقية ${tot-pd} د.ج`, "warning");
@@ -1808,9 +2024,9 @@
             },
 
             History: {
-                log: function(action, details, amount = null, type = 'system') {
+                log: function(action, details, amount = null, type = 'system', metadata = null) {
                     const d = new Date();
-                    App.DB.history.unshift({ id: App.UI.generateId(), action, details, amount, type, time: d.toLocaleTimeString('ar-DZ'), date: d.toLocaleDateString('ar-DZ'), rawDate: d.getTime() });
+                    App.DB.history.unshift({ id: App.UI.generateId(), action, details, amount, type, time: d.toLocaleTimeString('ar-DZ'), date: d.toLocaleDateString('ar-DZ'), rawDate: d.getTime(), metadata });
                     if(App.DB.history.length > 5000) App.DB.history.pop(); 
                 },
                 render: function() {
@@ -1883,9 +2099,32 @@
                         targetStart = 0; // Epoch
                     }
 
+                    const catSalesAgg = {};
+                    const items = {};
+
                     App.DB.history.forEach(h => {
                         if(h.rawDate >= targetStart) {
-                            if(h.type==='sale') { sales+=parseFloat(h.amount||0); count++; }
+                            if(h.type==='sale') { 
+                                sales+=parseFloat(h.amount||0); count++; 
+                                
+                                // Aggregate Categories using metadata stored during checkout
+                                if(h.metadata) {
+                                    Object.keys(h.metadata).forEach(catId => {
+                                        if(!catSalesAgg[catId]) catSalesAgg[catId] = 0;
+                                        catSalesAgg[catId] += h.metadata[catId];
+                                    });
+                                }
+
+                                // Aggregate Products (parsing details string)
+                                const parts = h.details.split(' ، ');
+                                parts.forEach(p => {
+                                    const m = p.match(/(.*) \(x(\d+)\)/);
+                                    if(m) {
+                                        const n = m[1].trim(); const q = parseInt(m[2]);
+                                        if(!items[n]) items[n] = 0; items[n] += q;
+                                    }
+                                });
+                            }
                             if(h.type==='profit') profit+=parseFloat(h.amount||0);
                             if(h.type==='payment') pd+=parseFloat(h.amount||0);
                         }
@@ -1898,20 +2137,16 @@
                         <div class="stat-card" style="--c-accent: var(--info);"><div class="stat-icon text-info"><span class="material-symbols-rounded">price_check</span></div><div><p class="text-muted font-bold text-clear-title">المدفوعات المحصلة</p><h2 class="text-xl text-success text-clear-num">${App.UI.formatMoney(pd)}</h2></div></div>
                     `;
 
-                    const items = {};
-                    App.DB.history.forEach(h => {
-                        if(h.type==='sale' && h.rawDate >= targetStart) {
-                            const parts = h.details.split(' ، ');
-                            parts.forEach(p => {
-                                const m = p.match(/(.*) \(x(\d+)\)/);
-                                if(m) {
-                                    const n = m[1].trim(); const q = parseInt(m[2]);
-                                    if(!items[n]) items[n] = 0; items[n] += q;
-                                }
-                            });
-                        }
+                    // Render Category Report Table
+                    const catTb = document.getElementById('rep-cat-tbody'); catTb.innerHTML = '';
+                    Object.entries(catSalesAgg).sort((a,b)=>b[1]-a[1]).forEach(([catId, qty]) => {
+                        const catName = App.Categories.getName(catId);
+                        const cObj = App.DB.categories.find(c => c.id === catId) || { icon:'category', color:'var(--text-main)' };
+                        catTb.innerHTML += `<tr><td><div class="flex items-center gap-sm font-bold text-lg text-clear-title"><span class="material-symbols-rounded" style="color:${cObj.color}">${cObj.icon}</span> ${catName}</div></td><td class="font-bold text-primary text-xl text-clear-num">${qty}</td></tr>`;
                     });
-                    const tb = document.getElementById('rep-tbody'); tb.innerHTML = '';
+
+                    // Render Products Report Table
+                    const tb = document.getElementById('rep-prod-tbody'); tb.innerHTML = '';
                     Object.entries(items).sort((a,b)=>b[1]-a[1]).slice(0,20).forEach(([k,v]) => {
                         tb.innerHTML += `<tr><td class="font-bold text-main text-lg text-clear-title">${k}</td><td class="font-bold text-primary text-xl text-clear-num">${v}</td></tr>`;
                     });
